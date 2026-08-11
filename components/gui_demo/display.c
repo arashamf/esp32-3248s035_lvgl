@@ -2,13 +2,16 @@
 
 #include "esp_log.h"
 #include "esp_check.h"
-#include "esp_err.h"
 
 #include "driver/i2c.h"
-#include "spi_bus.h"
+//#include "spi_bus.h"
+#include "driver/spi_master.h"
 
 #include "esp_lcd_st7796.h"
+
+#if CONFIG_TOUCH_ENABLE
 #include "esp_lcd_touch_gt911.h"
+#endif
 
 #include "lvgl.h"
 #include "esp_lvgl_port.h"
@@ -39,8 +42,8 @@ const char *TAG = "DISPLAY";
 #define LCD_PANEL_PARAM_BITS (8)
 #define LCD_PANEL_COLOR_SPACE (ESP_LCD_COLOR_SPACE_BGR)
 #define LCD_PANEL_BITS_PER_PIXEL (16)
-#define LCD_PANEL_DRAW_BUFF_DOUBLE (1)
-#define LCD_PANEL_DRAW_BUFF_HEIGHT (50)
+#define LCD_PANEL_DRAW_BUFF_DOUBLE (0)
+#define LCD_PANEL_DRAW_BUFF_HEIGHT (20)
 #define LCD_PANEL_BL_ON_LEVEL (1)
 
 // Touch settings
@@ -48,6 +51,7 @@ const char *TAG = "DISPLAY";
 
 static esp_lcd_panel_io_handle_t lcd_panel_io_handle;
 static esp_lcd_panel_handle_t lcd_panel_handle;
+static bool lvgl_initialized = false;
 
 esp_err_t init_lcd(void)
 {
@@ -100,19 +104,25 @@ err:
     if (lcd_panel_handle)       {   esp_lcd_panel_del(lcd_panel_handle);    }
     if (lcd_panel_io_handle)    {   esp_lcd_panel_io_del(lcd_panel_io_handle);  }
     spi_bus_free(LCD_PANEL_HOST);
+
     return ret;
 }
 
-static esp_lcd_touch_handle_t lcd_touch_handle;
+#if CONFIG_TOUCH_ENABLE
+//static esp_lcd_touch_handle_t lcd_touch_handle;
 esp_err_t init_touch(void)
 {
-    // initialize I2C
+    ESP_LOGI(TAG, "Initializing touch panel GT911...");
+    ESP_LOGI(TAG, "Touch pins - SCL:%d SDA:%d RST:%d IRQ:%d", 
+             TOUCH_SCL_GPIO, TOUCH_SDA_GPIO, TOUCH_RST_GPIO, TOUCH_IRQ_GPIO);
+    
+    // Инициализация I2C
     const i2c_config_t i2c_conf = {
         .mode = I2C_MODE_MASTER,
         .sda_io_num = TOUCH_SDA_GPIO,
-        .sda_pullup_en = GPIO_PULLUP_DISABLE,
         .scl_io_num = TOUCH_SCL_GPIO,
-        .scl_pullup_en = GPIO_PULLUP_DISABLE,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
         .master.clk_speed = TOUCH_I2C_CLK_HZ,
     };
     ESP_RETURN_ON_ERROR(i2c_param_config(I2C_NUM_0, &i2c_conf), TAG, "I2C configuration failed");
@@ -120,11 +130,42 @@ esp_err_t init_touch(void)
 
     ESP_LOGI(TAG, "I2C bus initialized successfully");
 
+    // Настройка пина сброса тач-панели
+    if (TOUCH_RST_GPIO != GPIO_NUM_NC) {
+        gpio_config_t rst_gpio_config = {
+            .mode = GPIO_MODE_OUTPUT,
+            .pin_bit_mask = 1ULL << TOUCH_RST_GPIO,
+        };
+        ESP_RETURN_ON_ERROR(gpio_config(&rst_gpio_config), TAG, "Failed to init touch RST");
+        
+        // Сброс тач-панели
+        gpio_set_level(TOUCH_RST_GPIO, 0);
+        vTaskDelay(pdMS_TO_TICKS(10));
+        gpio_set_level(TOUCH_RST_GPIO, 1);
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    // Настройка пина прерывания тач-панели
+    if (TOUCH_IRQ_GPIO != GPIO_NUM_NC) {
+        gpio_config_t irq_gpio_config = {
+            .mode = GPIO_MODE_INPUT,
+            .pin_bit_mask = 1ULL << TOUCH_IRQ_GPIO,
+            .pull_up_en = GPIO_PULLUP_ENABLE,
+        };
+        ESP_RETURN_ON_ERROR(gpio_config(&irq_gpio_config), TAG, "Failed to init touch IRQ");
+    }
+
+    // Создание I2C панели для тач-контроллера
+    esp_lcd_panel_io_handle_t tp_io_handle = NULL;
+    const esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
+    ESP_RETURN_ON_ERROR(esp_lcd_new_panel_io_i2c((esp_lcd_i2c_bus_handle_t)I2C_NUM_0, &tp_io_config, &tp_io_handle), TAG, "New touch panel IO failed");
+
+    // Настройка тач-панели GT911
     const esp_lcd_touch_config_t tp_config = {
         .x_max = LCD_PANEL_WIDTH,
         .y_max = LCD_PANEL_HEIGHT,
-        .rst_gpio_num = GPIO_NUM_NC,
-        .int_gpio_num = GPIO_NUM_NC,
+        .rst_gpio_num = TOUCH_RST_GPIO,
+        .int_gpio_num = TOUCH_IRQ_GPIO,
         .levels = {
             .reset = 0,
             .interrupt = 0,
@@ -135,11 +176,13 @@ esp_err_t init_touch(void)
             .mirror_y = 0,
         },
     };
-    esp_lcd_panel_io_handle_t tp_io_handle = NULL;
-    const esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
-    ESP_RETURN_ON_ERROR(esp_lcd_new_panel_io_i2c((esp_lcd_i2c_bus_handle_t)I2C_NUM_0, &tp_io_config, &tp_io_handle), TAG, "New touch panel failed");
-    return esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_config, &lcd_touch_handle);
+    
+    ESP_RETURN_ON_ERROR(esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_config, &lcd_touch_handle), TAG, "Failed to create GT911 touch");
+    
+    ESP_LOGI(TAG, "Touch panel GT911 initialized successfully");
+    return ESP_OK;
 }
+#endif
 
 lv_display_t *lvgl_disp = NULL;
 lv_indev_t *lvgl_touch_indev = NULL;
@@ -147,10 +190,10 @@ esp_err_t init_lvgl(void)
 {
     lvgl_port_cfg_t lvgl_config = {
         .task_priority = 4,
-        .task_stack = 4 * 1024,
+        .task_stack = 8 * 1024,
         .task_affinity = -1,
         .task_max_sleep_ms = 500,
-        .timer_period_ms = 5,
+        .timer_period_ms = 10,
     };
     ESP_RETURN_ON_ERROR(lvgl_port_init(&lvgl_config), TAG, "LVGL port initialization failed");
 
@@ -166,7 +209,7 @@ esp_err_t init_lvgl(void)
         .color_format = LV_COLOR_FORMAT_RGB565,
         .rotation = {
             .swap_xy = false,
-            .mirror_x = true,
+            .mirror_x = true,     // Отражение по горизонтали
             .mirror_y = false,
         },
         .flags = {
@@ -175,33 +218,39 @@ esp_err_t init_lvgl(void)
         },
     };
     lvgl_disp = lvgl_port_add_disp(&disp_config);
+    if (lvgl_disp == NULL) {
+        ESP_LOGE(TAG, "Failed to add display to LVGL");
+        return ESP_ERR_NO_MEM;
+    }
+    ESP_LOGI(TAG, "Display added to LVGL");
 
+    #if CONFIG_TOUCH_ENABLE
     const lvgl_port_touch_cfg_t touch_config = {
         .disp = lvgl_disp,
         .handle = lcd_touch_handle,
     };
     lvgl_touch_indev = lvgl_port_add_touch(&touch_config);
+    #endif
 
+    lvgl_initialized = true;
     return ESP_OK;
 }
 
 static uint32_t backlight_level = LCD_PANEL_BL_ON_LEVEL;
-esp_err_t switch_lcd_backlight(void)
+esp_err_t switch_lcd_backlight(bool backlight_level)
 {
-    if (backlight_level > 0)
-    {
-        backlight_level = 0;
-    }
-    else
-    {
-        backlight_level = 1;
-    }
     return gpio_set_level(LCD_PANEL_BL, backlight_level);
 }
 
-void run_display_2(void)
+void run_display(void)
 {
     ESP_ERROR_CHECK(init_lcd());
+    #if CONFIG_TOUCH_ENABLE
     ESP_ERROR_CHECK(init_touch());
+    #endif
     ESP_ERROR_CHECK(init_lvgl());
 }
+
+bool is_lvgl_ready(void)
+{   return lvgl_initialized;    }
+

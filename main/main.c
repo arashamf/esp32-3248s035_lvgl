@@ -10,6 +10,7 @@
 #include "ntp.h"
 #include "wifi.h"
 #include <string.h>
+#include "display.h"
 #include "esp_log.h"
 #include "lwip/sys.h"
 #include "lwip/err.h"
@@ -20,6 +21,7 @@
 #include "driver/gpio.h"
 #include "freertos/task.h"
 #include "freertos/FreeRTOS.h"
+#include "esp_lvgl_port.h"
 
 #define BLINK_GPIO      CONFIG_BLINK_GPIO
 #define BLINK_PERIOD    CONFIG_BLINK_PERIOD
@@ -43,6 +45,26 @@ static void configure_led(void) {
 #endif
 
 //------------------------------------------------------------------------------------------------//
+void run_demo_UI (void) {
+    while (!is_lvgl_ready()) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    // Создаем простой интерфейс для проверки
+    lv_obj_t *label = lv_label_create(lv_screen_active());
+    lv_label_set_text(label, "ESP32-3248S035\nLVGL + WiFi");
+    lv_obj_center(label);
+    
+    // Добавим кнопку для примера
+    lv_obj_t *btn = lv_btn_create(lv_screen_active());
+    lv_obj_set_size(btn, 120, 50);
+    lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -30);
+    
+    lv_obj_t *btn_label = lv_label_create(btn);
+    lv_label_set_text(btn_label, "Press me!");
+    lv_obj_center(btn_label);
+}
+
+//------------------------------------------------------------------------------------------------//
 void app_main(void) {
     wifi_ap_record_t info;
     esp_err_t ret = nvs_flash_init();     //Initialize NVS
@@ -53,14 +75,28 @@ void app_main(void) {
         ESP_LOGI(TAG, "nvs_flash_init: 0x%04x", ret);
     }
     ESP_ERROR_CHECK(ret);
+
+    //запуск графики
+    ESP_LOGI(TAG, "Initializing display...");   
+    /*ret=init_lcd();
+    if (ret != ESP_OK) {    ESP_LOGE(TAG, "LCD initialization failed: 0x%04x", ret);    }
+    #if CONFIG_TOUCH_ENABLE
+    ESP_ERROR_CHECK(init_touch());
+    #endif
+    ret=init_lvgl();
+    if (ret != ESP_OK) {    ESP_LOGE(TAG, "LVGL initialization failed: 0x%04x", ret);   }*/
+    run_display();
+    run_demo_UI ();
+
+    //настройка wifi и lwip
     // If you only want to open more logs in the wifi module, you need to make the max level greater than the default level,
     // and call esp_log_level_set() before esp_wifi_init() to improve the log level of the wifi module. 
     if (CONFIG_LOG_MAXIMUM_LEVEL > CONFIG_LOG_DEFAULT_LEVEL) {  esp_log_level_set("wifi", CONFIG_LOG_MAXIMUM_LEVEL); }
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
 
     wifi_init_sta();
-    xTaskCreate(udp_task, "udp_task", 4096, NULL, 4, NULL);
-    xTaskCreate(ntp_task, "ntp_task", 4096, NULL, 5, NULL);
+    xTaskCreate(udp_task, "udp_task", 2*1024, NULL, 4, NULL);
+    xTaskCreate(ntp_task, "ntp_task", 2*1024, NULL, 5, NULL);
 
     configure_led(); // Configure the peripheral according to the LED type 
     uint8_t s_led_state = 1;

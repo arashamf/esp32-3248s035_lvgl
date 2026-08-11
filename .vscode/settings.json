@@ -6,7 +6,7 @@
     "interface/ftdi/esp32_devkitj_v1.cfg",
     "target/esp32.cfg"
   ],
-  "idf.portWin": "COM8",
+  "idf.portWin": "COM10",
   "idf.toolsPathWin": "C:\\soft\\Espressif",
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32"
@@ -24,6 +24,6 @@
     "gpio.h": "c"
   },
   "idf.flashType": "UART",
-  "idf.currentSetup": "C:/soft/Espressif/frameworks/esp-idf-v5.5.1/",
-  "idf.monitorPort": "COM8"
+  "idf.currentSetup": "c:\\soft\\Espressif\\frameworks\\esp-idf-v5.5.1",
+  "idf.monitorPort": "COM10"
 }
