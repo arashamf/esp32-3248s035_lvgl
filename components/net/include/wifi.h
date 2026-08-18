@@ -10,7 +10,16 @@
 #include "esp_event.h"
 #include "esp_wifi.h"
 //-------------------------------------------------------------
-void wifi_init_sta(void);
-char * print_wifi_ip (void);
+char *      print_wifi_ip           (void)      ;
+esp_err_t   wifi_setting_init       (void)      ;
+esp_err_t   wifi_connect            (void)      ;
+void        create_wifi_task        (void)      ;
+void        wifi_task   (void *pvParameters)    ;
+bool wifi_manager_is_connected      (void)      ;
+bool wifi_manager_is_connecting     (void)      ;
+bool wifi_manager_has_failed        (void)      ;
+
 //-------------------------------------------------------------
+//extern EventGroupHandle_t s_wifi_event_group;
+
 #endif /* MAIN_WIFI_H_ */

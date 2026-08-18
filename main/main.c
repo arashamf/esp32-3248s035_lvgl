@@ -14,14 +14,15 @@
 #include "esp_log.h"
 #include "lwip/sys.h"
 #include "lwip/err.h"
-#include "esp_wifi.h"
+//#include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "esp_event.h"
+#include "esp_check.h"
 #include "esp_system.h"
 #include "driver/gpio.h"
 #include "freertos/task.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_lvgl_port.h"
+#include "freertos/FreeRTOS.h"
 
 #define RED_LED_GPIO        CONFIG_RED_LED_GPIO
 #define RED_BLUE_GPIO       CONFIG_BLUE_LED_GPIO
@@ -29,28 +30,46 @@
 #define BLINK_PERIOD        CONFIG_BLINK_PERIOD
 
 static const char *TAG = "main";
-
 #ifdef  CONFIG_LED_ENABLE
+const enum          {
+    RED_LED     = 0 ,
+    BLUE_LED        ,
+    GREEN_LED       ,
+    ALL_LED_PINS    ,
+}   led_pins_t ;
+const gpio_num_t pin_LED[ALL_LED_PINS] = { RED_LED_GPIO, RED_BLUE_GPIO, RED_GREEN_GPIO };
+
 //------------------------------------------------------------------------------------------------//
 void task_blink_led  (void *pvParameters) ;
+static esp_err_t switch_led  (uint8_t led, uint32_t state);
+static esp_err_t disable_all_led  (void);
+static void configure_led(void);
 
 //------------------------------------------------------------------------------------------------//
-static void blink_redled    (uint32_t state)    { gpio_set_level(RED_LED_GPIO, (state&0x01)); }    //Set the GPIO level according to the state (LOW or HIGH)
-static void blink_blueled   (uint32_t state)    { gpio_set_level(RED_BLUE_GPIO, (state&0x01)); } 
-static void blink_greenled  (uint32_t state)    { gpio_set_level(RED_GREEN_GPIO, (state&0x01)); } 
+static esp_err_t switch_led  (uint8_t led, uint32_t state) {
+    esp_err_t ret = ESP_OK;
+    if (led >= ALL_LED_PINS)     { return ESP_ERR_INVALID_ARG; }
+    ESP_RETURN_ON_ERROR ( gpio_set_level(pin_LED[led], (state&0x01)), TAG, "wrong argument for LED");
+    return ret;
+}
+
+//------------------------------------------------------------------------------------------------//
+static esp_err_t disable_all_led  (void) {
+    esp_err_t ret = ESP_OK;
+    for (uint8_t count = 0; count < ALL_LED_PINS; count++)  {
+        ESP_RETURN_ON_ERROR ( gpio_set_level(pin_LED[count], 0), TAG, "wrong argument for LED");
+    }
+    return ret;
+}
 
 //------------------------------------------------------------------------------------------------//
 static void configure_led(void) {
-    ESP_LOGI(TAG, "Example configured to blink GPIO LED!");
-    gpio_reset_pin((RED_LED_GPIO ));
-    gpio_reset_pin((RED_BLUE_GPIO));
-    gpio_reset_pin((RED_GREEN_GPIO ));
-    gpio_set_direction((RED_LED_GPIO ) , GPIO_MODE_OUTPUT);   //Set the GPIO as a push/pull output 
-    gpio_set_direction((RED_BLUE_GPIO) , GPIO_MODE_OUTPUT);   //Set the GPIO as a push/pull output 
-    gpio_set_direction((RED_GREEN_GPIO) , GPIO_MODE_OUTPUT);   //Set the GPIO as a push/pull output 
-    gpio_set_level((RED_LED_GPIO ) , 0);
-    gpio_set_level((RED_BLUE_GPIO) , 0);
-    gpio_set_level((RED_GREEN_GPIO ) , 0);
+    for (uint8_t count = 0; count < ALL_LED_PINS; count++)  {
+        gpio_reset_pin(pin_LED[count]);
+        gpio_set_direction((pin_LED[count]), GPIO_MODE_OUTPUT);
+        gpio_set_level((pin_LED[count]) ,    0);
+    }
+    xTaskCreate(task_blink_led, "blink_led", 1024, NULL, 6, NULL);
 }
 #endif
 
@@ -76,7 +95,6 @@ void run_demo_UI (void) {
 
 //------------------------------------------------------------------------------------------------//
 void app_main(void) {
-    wifi_ap_record_t info;
     esp_err_t ret = nvs_flash_init();     //Initialize NVS
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ret = nvs_flash_erase();
@@ -104,28 +122,16 @@ void app_main(void) {
     if (CONFIG_LOG_MAXIMUM_LEVEL > CONFIG_LOG_DEFAULT_LEVEL) {  esp_log_level_set("wifi", CONFIG_LOG_MAXIMUM_LEVEL); }
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
 
-    wifi_init_sta();
-    xTaskCreate(udp_task, "udp_task", 2*1024, NULL, 4, NULL);
-    xTaskCreate(ntp_task, "ntp_task", 2*1024, NULL, 5, NULL);
-
+    create_wifi_task();
+    xTaskCreate(udp_task, "udp_task", 2*1024, NULL, 5, NULL);
+    xTaskCreate(ntp_task, "ntp_task", 2*1024, NULL, 6, NULL);
+    vTaskDelay(500/ portTICK_PERIOD_MS);
     #ifdef  CONFIG_LED_ENABLE
     configure_led(); // Configure the peripheral according to the LED type 
-    uint8_t s_led_state = 1;
-    blink_blueled(s_led_state&0x01); 
-   // xTaskCreate(task_blink_led, "blink_led", 512, NULL, 6, NULL);
-   #endif
+    #endif
 
     while (1)   {
-       ESP_LOGI(TAG, "Heap free size:%d", xPortGetFreeHeapSize());
-       ret = esp_wifi_sta_get_ap_info(&info); //информация о точке доступа, с которой связано устройство
-        if (ret != ESP_OK) {
-            ESP_LOGI(TAG, "error! wifi_sta_get_ap_info: 0x%04x", ret); //вывод статуса соединения с точкой доступа
-            wifi_init_sta();    //если нет соединения с с точкой доступа, попытка нового соединения
-        }
-        #ifdef  CONFIG_LED_ENABLE
-        blink_blueled(s_led_state&0x01); 
-        s_led_state = !s_led_state;  
-        #endif
+        ESP_LOGI(TAG, "Heap free size:%d", xPortGetFreeHeapSize());
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
@@ -133,12 +139,12 @@ void app_main(void) {
 //------------------------------------------------------------------------------------------------//
 #ifdef  CONFIG_LED_ENABLE
 void task_blink_led (void *pvParameters) {
-    uint8_t s_led_state = 0;
-  //  configure_led(); // Configure the peripheral according to the LED type 
     while(1)    {
-        blink_redled(s_led_state);                  //Toggle the LED state
-        s_led_state = !s_led_state;
-        vTaskDelay(BLINK_PERIOD/portTICK_PERIOD_MS);
+        for (uint8_t count = 0; count < ALL_LED_PINS; count++)  {
+            disable_all_led  ();
+            switch_led  (count, 1);
+            vTaskDelay(BLINK_PERIOD/portTICK_PERIOD_MS);
+        }
     }
 }
 #endif
