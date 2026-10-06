@@ -1,6 +1,7 @@
 # ===== ESP-IDF =====
 build/
 sdkconfig
+sdkconfig.ci*
 sdkconfig.old
 managed_components/
 # ===== IDE =====
