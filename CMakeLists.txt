@@ -8,5 +8,6 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 idf_build_set_property(MINIMAL_BUILD ON)
 project(esp32-3248s035_lvgl)
 
+idf_build_set_property(COMPILE_OPTIONS "-DLV_CONF_PATH=\"${CMAKE_SOURCE_DIR}/lv_conf.h\"" APPEND)
 
 

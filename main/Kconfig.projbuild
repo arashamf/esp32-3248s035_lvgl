@@ -225,7 +225,6 @@ menu "Touch Panel Configuration"
         int "Touch SCL GPIO"
         default 32
         range 0 48
-        depends on TOUCH_ENABLE
         help
             GPIO number for I2C SCL (IIC_SCL = GPIO32).
 
@@ -233,7 +232,6 @@ menu "Touch Panel Configuration"
         int "Touch SDA GPIO"
         default 33
         range 0 48
-        depends on TOUCH_ENABLE
         help
             GPIO number for I2C SDA (IIC_SDA = GPIO33).
 
@@ -241,7 +239,6 @@ menu "Touch Panel Configuration"
         int "Touch Reset GPIO"
         default 25
         range 0 48
-        depends on TOUCH_ENABLE
         help
             GPIO number for Touch Reset (IIC_RST = GPIO25).
 
@@ -249,14 +246,12 @@ menu "Touch Panel Configuration"
         int "Touch IRQ GPIO"
         default 36
         range 0 48
-        depends on TOUCH_ENABLE
         help
             GPIO number for Touch Interrupt.
 
     config TOUCH_I2C_CLK_HZ
         int "Touch I2C clock frequency (Hz)"
         default 400000
-        depends on TOUCH_ENABLE
         help
             I2C clock frequency for touch panel.
 
@@ -264,22 +259,9 @@ endmenu
 
 menu "LVGL Configuration Override"
 
-    config LV_MEM_SIZE_KILOBYTES
-        int "LVGL memory size (KB)"
-        default 64
-        range 8 1024
-        help
-            Memory allocated for LVGL in kilobytes.
-
-    config LV_USE_PERF_MONITOR
-        bool "Enable performance monitor"
-        default y
-        help
-            Enable LVGL performance monitoring.
-
     config LV_USE_MEMORY_MONITOR
         bool "Enable memory monitor"
-        default y
+        default n
         help
             Enable LVGL memory usage monitoring.
 

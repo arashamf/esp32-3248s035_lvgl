@@ -1,3 +1,17 @@
+# ===== ESP-IDF =====
 build/
-lib/
+sdkconfig
+sdkconfig.old
+managed_components/
+# ===== IDE =====
+.vscode/
+.idea/
+# ===== Временные файлы =====
+*.log
+*.tmp
+*~
+.DS_Store
 
+# ===== Python =====
+__pycache__/
+*.pyc

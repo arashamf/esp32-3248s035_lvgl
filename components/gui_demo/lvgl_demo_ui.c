@@ -9,14 +9,14 @@
 #include "lvgl.h"
 
 static lv_obj_t * btn;
-static lv_display_rotation_t rotation = LV_DISP_ROTATION_0;
+static lv_display_rotation_t rotation = LV_DISPLAY_ROTATION_0;
 
 static void btn_cb(lv_event_t * e)
 {
     lv_display_t *disp = lv_event_get_user_data(e);
     rotation++;
-    if (rotation > LV_DISP_ROTATION_270) {
-        rotation = LV_DISP_ROTATION_0;
+    if (rotation > LV_DISPLAY_ROTATION_270) {
+        rotation = LV_DISPLAY_ROTATION_0;
     }
     lv_disp_set_rotation(disp, rotation);
 }

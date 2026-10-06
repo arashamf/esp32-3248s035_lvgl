@@ -46,17 +46,17 @@
 //--------------------------------------------------------------------------
 static const char *TAG = "wifi";
 static EventGroupHandle_t s_wifi_event_group = NULL; //FreeRTOS event group to signal when we are connected  
-static int s_retry_num = 0;
-uint16_t    ip_adress       [4]     ;
-char        log_buffer      [30]    ;
-static const char MAX_RETRY  =      10;      //максимальное количество попыток подключений перед перезагрузкой соединения
+static int  s_retry_num     = 0 ;
+uint16_t    ip_adress   [4]     ;
+//char        ip_str      [16]    ;
+static const char MAX_RETRY  =      10  ;      //максимальное количество попыток подключений перед перезагрузкой соединения
 TaskHandle_t WiFiTaskHandle  =      NULL;
 
 //--------------------------------------------------------------------------
-static void reset_wifi_event_bits   (void)          ;
-static void get_wifi_status         (void)          ;
-static void wifi_manager_start_reconnect(void)      ;
-static esp_err_t wifi_reset_state       (void)      ;
+static void print_wifi_ip (void* event_data)    ;
+static void reset_wifi_event_bits   (void)      ;
+static void get_wifi_status         (void)      ;
+static esp_err_t wifi_reset_state   (void)      ;
 
 //------------------------------------------------------------------------------------------------------//
 static void event_handler(void* arg, esp_event_base_t event_base,int32_t event_id, void* event_data)    {
@@ -80,7 +80,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,int32_t event_i
                 s_retry_num++;
                 ESP_LOGI(TAG, "Retry to connect to the AP (%d/%d)", s_retry_num, MAX_RETRY);
             } 
-            else    {
+            else                                                                    {
                 ESP_LOGE(TAG, "Failed to connect to AP after %d retries", MAX_RETRY);
                 xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
                 xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTING_BIT);
@@ -91,6 +91,10 @@ static void event_handler(void* arg, esp_event_base_t event_base,int32_t event_i
                 // Получен IP-адрес - подключение успешно
                 ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
                 ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
+                ip_adress[0] = esp_ip4_addr1_16(&event->ip_info.ip);
+                ip_adress[1] = esp_ip4_addr2_16(&event->ip_info.ip);
+                ip_adress[2] = esp_ip4_addr3_16(&event->ip_info.ip);
+                ip_adress[3] = esp_ip4_addr4_16(&event->ip_info.ip);
                 xEventGroupClearBits(s_wifi_event_group,WIFI_FAIL_BIT | WIFI_CONNECTING_BIT);  
                 xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);   
                 s_retry_num = 0;  
@@ -100,25 +104,24 @@ static void event_handler(void* arg, esp_event_base_t event_base,int32_t event_i
 }
 
 //------------------------------------------------------------------------------------------------------//
-char * print_wifi_ip (void)
-{
-    sprintf (log_buffer, "my_ip:%u.%u.%u.%u" ,ip_adress[0],ip_adress[1],ip_adress[2],ip_adress[3]);
-    return log_buffer;
+static void print_wifi_ip (void* event_data)        {
+    ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+    ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
 }
 
 //------------------------------------------------------------------------------------------------------//
 esp_err_t wifi_setting_init(void)                           {
     ESP_LOGI(TAG, "Initializing WiFi...");
     // Создание event group
-    if (s_wifi_event_group == NULL)                         {
+    if (s_wifi_event_group == NULL)                             {
         s_wifi_event_group = xEventGroupCreate();
-        if (s_wifi_event_group == NULL)                     {
+        if (s_wifi_event_group == NULL)                             {
             ESP_LOGE(TAG, "Failed to create event group");
             return ESP_ERR_NO_MEM;
         }    
     }
     else                                                                                {
-        if ((xEventGroupGetBits(s_wifi_event_group) & WIFI_INITIALIZED_BIT) == true)    {
+        if ((xEventGroupGetBits(s_wifi_event_group) & WIFI_INITIALIZED_BIT) == true)        {
             ESP_LOGW(TAG, "WiFi already initialized");
             return ESP_OK;
         }
@@ -198,7 +201,7 @@ void create_wifi_task(void)             {
 //------------------------------------------------------------------------------------------------------//
 void wifi_task(void *pvParameters) {
     wifi_ap_record_t info;
-    while (wifi_setting_init() != ESP_OK)          {
+    while (wifi_setting_init() != ESP_OK)                   {
         ESP_LOGE(TAG, "wifi_setting_init failed! Retrying in 5 seconds...");
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
@@ -206,13 +209,14 @@ void wifi_task(void *pvParameters) {
     esp_err_t ret = wifi_connect();
     ESP_LOGI(TAG, "wifi_connect() returned: 0x%04x", ret);
 
-    while (1)   {
-        if (wifi_manager_is_connected()==true)                  {
-            if  (esp_wifi_sta_get_ap_info(&info) == ESP_OK)     {   //информация о точке доступа, с которой связано устройство
-                ESP_LOGI(TAG, "Connected to: %s", (char *)info.ssid);
+    while (1)                                           {
+        if (wifi_manager_is_connected()==true)              {
+            if  (esp_wifi_sta_get_ap_info(&info) == ESP_OK)     {       //информация о точке доступа, с которой связано устройство
+                ESP_LOGI(TAG, "Connected to: %s,my_ip: %d.%d.%d.%d",(char *)info.ssid,
+                                ip_adress[0],ip_adress[1],ip_adress[2],ip_adress[3]);
             }
         }
-        else                                            {
+        else                                        {
             if (wifi_manager_has_failed() == true)      {           //если произошла ошибка 
                 ESP_LOGW(TAG, "Connection failed, resetting...");
                 s_retry_num = 0;
@@ -227,26 +231,25 @@ void wifi_task(void *pvParameters) {
 
 //------------------------------------------------------------------------------------------------------//
 bool wifi_manager_is_connected(void)    {    
-    if (s_wifi_event_group == NULL)     {   return false;   }
+    if (s_wifi_event_group == NULL)         {   return false;   }
     return (xEventGroupGetBits(s_wifi_event_group) & WIFI_CONNECTED_BIT) != 0;    
 }
 
 //-------------------------------Статус попытки соединения с WiFi сетью--------------------------------//
 bool wifi_manager_is_connecting(void)   {   
-    if (s_wifi_event_group == NULL)     {   return false;   }
+    if (s_wifi_event_group == NULL)         {   return false;   }
     return (xEventGroupGetBits(s_wifi_event_group) &    WIFI_CONNECTING_BIT) != 0;   
 }
 
 //---------------------------Проверка статуса ошибки соединения с WiFi сетью---------------------------//
-bool wifi_manager_has_failed(void)
-{
-    if (s_wifi_event_group == NULL) {   return false;   }
+bool wifi_manager_has_failed(void)      {
+    if (s_wifi_event_group == NULL)         {   return false;   }
     return (xEventGroupGetBits(s_wifi_event_group) & WIFI_FAIL_BIT) != 0;
 }
 
 //------------------------------------------------------------------------------------------------------//
-static void get_wifi_status (void)                             {
-    // ====== ОТЛАДКА: Состояние битов ======
+static void get_wifi_status (void)                      {
+    //-------Состояние битов статуса WiFi
     uint32_t bits = xEventGroupGetBits(s_wifi_event_group);
     ESP_LOGI(TAG, "EVENT BITS: INIT=%d, CONN=%d, CONNECTING=%d, FAIL=%d",
     (bits & WIFI_INITIALIZED_BIT) ? 1 : 0,
@@ -254,35 +257,19 @@ static void get_wifi_status (void)                             {
     (bits & WIFI_CONNECTING_BIT) ? 1 : 0,
     (bits & WIFI_FAIL_BIT) ? 1 : 0);
     ESP_LOGI(TAG, "s_retry_num: %d", s_retry_num);
-    // ====== ОТЛАДКА: Статус WiFi драйвера ======
+    //-------Статус WiFi драйвера 
     wifi_mode_t mode;
     esp_wifi_get_mode(&mode);
     ESP_LOGI(TAG, "WiFi mode: %d (1=STA, 2=AP, 3=STA+AP)", mode);
 }
 
 //------------------------------------------------------------------------------------------------------//
-static void reset_wifi_event_bits (void)                             {
-    if (s_wifi_event_group == NULL) {   return; }
-    else                            {
+static void reset_wifi_event_bits (void)    {
+    if (s_wifi_event_group == NULL)             {   return; }
+    else                                            {
         xEventGroupClearBits(s_wifi_event_group,WIFI_CONNECTED_BIT | WIFI_CONNECTING_BIT | WIFI_FAIL_BIT);
         ESP_LOGI(TAG, "Forced WiFi state reset: CONN=0, CONNECTING=0, FAIL=0");
     }
-}
-
-//------------------------------------------------------------------------------------------------------//
-static void wifi_manager_start_reconnect(void)     {
-    if (s_wifi_event_group == NULL)     {   return; }
-     // Запуск переподключение ТОЛЬКО если НЕ подключены
-    if ((xEventGroupGetBits(s_wifi_event_group) & WIFI_CONNECTED_BIT) != 0)    {   return; }
-     //Проверка, что нет другой попытки подключения
-    if ((xEventGroupGetBits(s_wifi_event_group) & WIFI_CONNECTING_BIT) != 0) {
-        ESP_LOGD(TAG, "Connection already in progress");
-        return;
-    }
-    ESP_LOGI(TAG, "Starting reconnect...");
-    s_retry_num = 0;
-    xEventGroupClearBits(s_wifi_event_group, WIFI_FAIL_BIT); // Сброс флага ошибки перед новой попыткой подключения
-    esp_wifi_connect(); //попытка подключения
 }
 
 //------------------------------------------------------------------------------------------------------//
@@ -290,19 +277,19 @@ static esp_err_t wifi_reset_state(void)     {
     reset_wifi_event_bits();
     s_retry_num = 0;
     ESP_LOGI(TAG, "WiFi state reset"); 
-
     esp_err_t ret;
+
     ret = esp_wifi_stop();
-    if ((ret != ESP_OK) && (ret != ESP_ERR_WIFI_NOT_STARTED)) { 
+    if ((ret != ESP_OK) && (ret != ESP_ERR_WIFI_NOT_STARTED))   { 
         ESP_LOGW(TAG, "esp_wifi_stop failed: 0x%04x", ret); 
     } 
-    else {  ESP_LOGI(TAG, "esp_wifi_stop"); }
+    else    {   ESP_LOGI(TAG, "esp_wifi_stop"); }
     // Отключения от AP
     ret = esp_wifi_disconnect();
-    if ((ret != ESP_OK) && (ret != ESP_ERR_WIFI_NOT_CONNECT) && (ret != ESP_ERR_WIFI_NOT_STARTED)) {
+    if ((ret != ESP_OK) && (ret != ESP_ERR_WIFI_NOT_CONNECT) && (ret != ESP_ERR_WIFI_NOT_STARTED))  {
         ESP_LOGW(TAG, "esp_wifi_disconnect failed: 0x%04x", ret);
     }
-    else {  ESP_LOGI(TAG, "esp_wifi_disconnect"); }
+    else    {   ESP_LOGI(TAG, "esp_wifi_disconnect");   }
     return ret;
 }
 

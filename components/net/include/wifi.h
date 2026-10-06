@@ -10,7 +10,6 @@
 #include "esp_event.h"
 #include "esp_wifi.h"
 //-------------------------------------------------------------
-char *      print_wifi_ip           (void)      ;
 esp_err_t   wifi_setting_init       (void)      ;
 esp_err_t   wifi_connect            (void)      ;
 void        create_wifi_task        (void)      ;
