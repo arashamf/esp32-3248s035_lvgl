@@ -1,17 +1,23 @@
 //------------------------------------------------------------------------------------------------//
-#include "ntp.h"
-#include "esp_sntp.h"
-#include "esp_netif_sntp.h"
-#include <string.h>
-#include <time.h>
-#include <sys/time.h>
+#include    "freertos/FreeRTOS.h"
+#include    "freertos/task.h"
+#include    "ntp.h"
+#include    <string.h>
+#include    <time.h>
+#include    <sys/time.h>
+#include    "esp_log.h"
+#include    "esp_sntp.h"
+#include    "esp_netif_sntp.h"
+#include    "esp_sleep.h"
+#include    "lwip/inet.h"           //для ip_addr_t, ipaddr_ntoa_r
+#include    "lwip/ip_addr.h"        //для ip_addr_t
 
 //------------------------------------------------------------------------------------------------//
 #define MAX_RETRY           20
 #define INET6_ADDRSTRLEN    48
 
 //------------------------------------------------------------------------------------------------//
-static const char *TAG = "example";
+static const char *TAG = "NTP";
 char strftime_buf[64];
 char buff[INET6_ADDRSTRLEN];
 

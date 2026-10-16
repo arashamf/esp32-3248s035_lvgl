@@ -1,6 +1,15 @@
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "udp.h"
+#include <string.h>
+#include "esp_log.h"
+#include "lwip/err.h"
+#include "lwip/sockets.h"
+#include "lwip/sys.h"
+#include <lwip/netdb.h>
+
 //----------------------------------------------------------------------//
-static const char *TAG = "udp";
+static const char *TAG = "UDP";
 
 //----------------------------------------------------------------------//
 void udp_task(void *pvParameters) {

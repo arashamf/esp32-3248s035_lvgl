@@ -1,0 +1,21 @@
+idf_component_register(
+    SRCS
+		"display.c"
+		"wifi.c"
+		"udp.c"
+		"ntp.c"
+		"i2c_bb.c"
+		"gt911.c"
+		"gui.c"
+		"led.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        lvgl
+        esp_lvgl_port
+        esp_lcd_st7796
+        driver
+        nvs_flash
+        esp_wifi
+        lwip
+)

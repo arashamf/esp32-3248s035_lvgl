@@ -1,5 +1,17 @@
+//--------------------------------------------------------------------------//
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "wifi.h"
-//--------------------------------------------------------------------------
+#include <string.h>
+#include "esp_log.h"
+#include "esp_check.h"
+#include "esp_event.h"
+#include "esp_wifi.h"
+#include "nvs_flash.h"
+#include "driver/gpio.h"
+
+//--------------------------------------------------------------------------//
 /* The examples use WiFi configuration that you can set via project configuration menu
 
    If you'd rather not, just change the below entries to strings with
@@ -44,12 +56,12 @@
 #define     WIFI_CONNECTING_BIT     BIT3    //бит устанавливается при попытке соединения с WiFi сетью
 
 //--------------------------------------------------------------------------
-static const char *TAG = "wifi";
+static const char *TAG = "wifi"         ;
 static EventGroupHandle_t s_wifi_event_group = NULL; //FreeRTOS event group to signal when we are connected  
-static int  s_retry_num     = 0 ;
-uint16_t    ip_adress   [4]     ;
-//char        ip_str      [16]    ;
-static const char MAX_RETRY  =      10  ;      //максимальное количество попыток подключений перед перезагрузкой соединения
+static int  s_retry_num     = 0         ;
+uint16_t    ip_adress   [4]             ;
+//char        ip_str      [16]          ;
+static const char MAX_RETRY  =      10  ;       //максимальное количество попыток подключений перед перезагрузкой соединения
 TaskHandle_t WiFiTaskHandle  =      NULL;
 
 //--------------------------------------------------------------------------

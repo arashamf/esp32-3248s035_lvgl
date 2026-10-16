@@ -1,0 +1,11 @@
+version: "1.0.0"
+description: "Base system for ESP32-3248S035: ST7796 display, GT911 touch, WiFi, LVGL v9"
+url: "https://github.com/arashamf/esp32-3248s035_lvgl"
+repository: "https://github.com/arashamf/esp32-3248s035_lvgl.git"
+license: "MIT"
+
+dependencies:
+  idf: ">=5.5"
+  lvgl/lvgl: "^9.0.0"
+  espressif/esp_lvgl_port: "^2.3.0"
+  espressif/esp_lcd_st7796: "^1.4.0"

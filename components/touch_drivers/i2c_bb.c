@@ -1,7 +1,8 @@
-#include "i2c_bb.h"
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+#include "i2c_bb.h"
+#include "esp_log.h"
 
 static const char *TAG = "I2C_BB";
 
@@ -123,11 +124,8 @@ void i2c_bb_send_byte(uint8_t txd)      {
     sda_out();
     i2c_scl(0);
     for (t = 0; t < 8; t++) {
-        if (txd & 0x80) {
-            i2c_sda(1);
-        } else {
-            i2c_sda(0);
-        }
+        if (txd & 0x80) {   i2c_sda(1); } 
+        else            {   i2c_sda(0); }
         txd <<= 1;
         i2c_bb_delay_us(2);
         i2c_scl(1);

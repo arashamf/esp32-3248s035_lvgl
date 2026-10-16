@@ -6,7 +6,11 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "udp.h"
+#include "gui.h"
+#include "led.h"
 #include "ntp.h"
 #include "wifi.h"
 #include "display.h"
@@ -17,76 +21,10 @@
 #include "esp_event.h"
 #include "esp_check.h"
 #include "esp_system.h"
-#include "driver/gpio.h"
-#include "freertos/task.h"
 #include "esp_lvgl_port.h"
-#include "freertos/FreeRTOS.h"
 
-#define RED_LED_GPIO        CONFIG_RED_LED_GPIO
-#define RED_BLUE_GPIO       CONFIG_BLUE_LED_GPIO
-#define RED_GREEN_GPIO      CONFIG_GREEN_LED_GPIO
-#define BLINK_PERIOD        CONFIG_BLINK_PERIOD
-
+//------------------------------------------------------------------------------------------------//
 static const char *TAG = "main";
-#ifdef  CONFIG_LED_ENABLE
-const enum          {
-    RED_LED     = 0 ,
-    BLUE_LED        ,
-    GREEN_LED       ,
-    ALL_LED_PINS    ,
-}   led_pins_t ;
-const gpio_num_t pin_LED[ALL_LED_PINS] = { RED_LED_GPIO, RED_BLUE_GPIO, RED_GREEN_GPIO };
-
-//------------------------------------------------------------------------------------------------//
-void task_blink_led  (void *pvParameters) ;
-static esp_err_t switch_led  (uint8_t led, uint32_t state);
-static esp_err_t disable_all_led  (void);
-static void configure_led(void);
-
-//------------------------------------------------------------------------------------------------//
-static esp_err_t switch_led  (uint8_t led, uint32_t state) {
-    esp_err_t ret = ESP_OK;
-    if (led >= ALL_LED_PINS)     { return ESP_ERR_INVALID_ARG; }
-    ESP_RETURN_ON_ERROR ( gpio_set_level(pin_LED[led], (state&0x01)), TAG, "wrong argument for LED");
-    return ret;
-}
-
-//------------------------------------------------------------------------------------------------//
-static esp_err_t disable_all_led  (void) {
-    esp_err_t ret = ESP_OK;
-    for (uint8_t count = 0; count < ALL_LED_PINS; count++)  {
-        ESP_RETURN_ON_ERROR ( gpio_set_level(pin_LED[count], 0), TAG, "wrong argument for LED");
-    }
-    return ret;
-}
-
-//------------------------------------------------------------------------------------------------//
-static void configure_led(void) {
-    for (uint8_t count = 0; count < ALL_LED_PINS; count++)  {
-        gpio_reset_pin(pin_LED[count]);
-        gpio_set_direction((pin_LED[count]), GPIO_MODE_OUTPUT);
-        gpio_set_level((pin_LED[count]) ,    0);
-    }
-    xTaskCreate(task_blink_led, "blink_led", 1024, NULL, 6, NULL);
-}
-#endif
-
-//------------------------------------------------------------------------------------------------//
-void run_demo_UI (void) {
-    while (!is_lvgl_ready()) {  vTaskDelay(pdMS_TO_TICKS(10));  }
-    // Создание простого интерфейса для проверки
-    lv_obj_t *label = lv_label_create(lv_screen_active());
-    lv_label_set_text(label, "ESP32-3248S035\nLVGL + WiFi");
-    lv_obj_center(label);
-    // Добавим кнопку для примера
-    lv_obj_t *btn = lv_btn_create(lv_screen_active());
-    lv_obj_set_size(btn, 120, 50);
-    lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -30);
-    
-    lv_obj_t *btn_label = lv_label_create(btn);
-    lv_label_set_text(btn_label, "Press me!");
-    lv_obj_center(btn_label);
-}
 
 //------------------------------------------------------------------------------------------------//
 void app_main(void) {
@@ -99,8 +37,8 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    run_display();  //запуск графики
-    run_demo_UI();
+    run_display();  
+    gui_init(); //запуск графики
     //настройка wifi и lwip
     // If you only want to open more logs in the wifi module, you need to make the max level greater than the default level,
     // and call esp_log_level_set() before esp_wifi_init() to improve the log level of the wifi module. 
@@ -122,14 +60,4 @@ void app_main(void) {
 }
 
 //------------------------------------------------------------------------------------------------//
-#ifdef  CONFIG_LED_ENABLE
-void task_blink_led (void *pvParameters) {
-    while(1)    {
-        for (uint8_t count = 0; count < ALL_LED_PINS; count++)  {
-            disable_all_led  ();
-            switch_led  (count, 1);
-            vTaskDelay(BLINK_PERIOD/portTICK_PERIOD_MS);
-        }
-    }
-}
-#endif
+

@@ -1,6 +1,12 @@
 menu "LED Configuration"
 
     config LED_ENABLE
+        bool "Enable LED support"
+        default y
+        help
+			Enable LED control
+			
+    config LED_ENABLE
         bool "Enable LED"
         default n
 

@@ -1,16 +1,14 @@
 #ifndef MAIN_UDP_H_
 #define MAIN_UDP_H_
-//-------------------------------------------------------------
-#include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
 
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include <lwip/netdb.h>
-//-------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
+//-------------------------------------------------------------//
 void udp_task(void *pvParameters);
-//-------------------------------------------------------------
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* MAIN_UDP_H_ */

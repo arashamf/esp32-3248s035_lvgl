@@ -1,17 +1,17 @@
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include "gt911.h"
 #include "i2c_bb.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
 #define CT_MAX_TOUCH        5  
 
 //----------------------------------------------------------------------------//
-typedef struct
-{
-  uint8_t Touch;
-  uint8_t TouchpointFlag;
-  uint8_t TouchCount;
+typedef struct                          {
+  uint8_t Touch             ;
+  uint8_t TouchpointFlag    ;
+  uint8_t TouchCount        ;
 
   uint8_t Touchkeytrackid   [CT_MAX_TOUCH];
   uint16_t X                [CT_MAX_TOUCH];
@@ -22,8 +22,7 @@ typedef struct
 //----------------------------------------------------------------------------//
 static const char *TAG = "GT911";
 
-static uint8_t s_GT911_CfgParams[] =
-{
+static uint8_t s_GT911_CfgParams[] =                        {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -45,8 +44,7 @@ static uint8_t s_GT911_CfgParams[] =
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-const uint8_t GT9111_CFG_TBL[] =
-{
+const uint8_t GT9111_CFG_TBL[] =                            {
   0X60, 0X40, 0X01, 0XE0, 0X01, 0X05, 0X35, 0X00, 0X02, 0X08,
   0X1E, 0X08, 0X50, 0X3C, 0X0F, 0X05, 0X00, 0X00, 0XFF, 0X67,
   0X50, 0X00, 0X00, 0X18, 0X1A, 0X1E, 0X14, 0X89, 0X28, 0X0A,
@@ -67,9 +65,9 @@ const uint8_t GT9111_CFG_TBL[] =
   0X00, 0XFF, 0XFF, 0XFF, 0XFF, 0XFF, 0XFF, 0XFF, 0XFF, 0XFF,
   0XFF, 0XFF, 0XFF, 0XFF,
 };
-static GT911_Dev Dev_Now;
-static GT911_Dev Dev_Backup;
-static bool touched = 0;
+static GT911_Dev    Dev_Now         ;
+static GT911_Dev    Dev_Backup      ;
+static bool         touched     = 0 ;
 
 //----------------------------------------------------------------------//
 static void     i2c_bb_write_reg    (uint16_t reg, uint8_t *data, size_t len)   ;
@@ -125,9 +123,9 @@ static void gt911_reset(void)       {
 
 //-----отправка команды обновления конфигурации в контроллер GT911-----//
 static uint8_t gt911_send_cfg(uint8_t mode)     {
-    uint8_t buf[2];
-    buf[0] = 0;
-    buf[1] = mode;
+    uint8_t buf[2]  ;
+    buf[0] = 0      ;
+    buf[1] = mode   ;
     i2c_bb_write_reg(GT_CHECK_REG, buf, 2);
     return 0;
 }
@@ -145,9 +143,9 @@ static uint8_t gt911_read_status(void)       {
 
 //------------чтение координат касаний из контроллера GT911------------//
 static void gt911_scan(void)    {
-    uint8_t buf[64];
+    uint8_t buf[48]     ;
     uint8_t Clearbuf = 0;
-    uint8_t i;
+    uint8_t i           ;
 
     Dev_Now.Touch = 0;
     i2c_bb_read_reg(GT_READ_REG, buf, 1);
