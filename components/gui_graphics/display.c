@@ -51,7 +51,6 @@ lv_indev_t                          *lvgl_touch_indev   = NULL  ;
 lv_display_t                        *lvgl_disp          = NULL  ;                   
 static esp_lcd_panel_io_handle_t    lcd_panel_io_handle         ;
 static esp_lcd_panel_handle_t       lcd_panel_handle            ;
-static uint32_t backlight_level =   LCD_PANEL_BL_ON_LEVEL       ;
 
 //-------------------------------------------------------------------------------------------//
 #if CONFIG_TOUCH_ENABLE

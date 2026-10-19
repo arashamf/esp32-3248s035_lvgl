@@ -66,7 +66,6 @@ const uint8_t GT9111_CFG_TBL[] =                            {
   0XFF, 0XFF, 0XFF, 0XFF,
 };
 static GT911_Dev    Dev_Now         ;
-static GT911_Dev    Dev_Backup      ;
 static bool         touched     = 0 ;
 
 //----------------------------------------------------------------------//
@@ -122,7 +121,7 @@ static void gt911_reset(void)       {
 
 
 //-----отправка команды обновления конфигурации в контроллер GT911-----//
-static uint8_t gt911_send_cfg(uint8_t mode)     {
+__attribute__((unused)) static uint8_t gt911_send_cfg(uint8_t mode)     {
     uint8_t buf[2]  ;
     buf[0] = 0      ;
     buf[1] = mode   ;

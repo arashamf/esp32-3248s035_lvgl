@@ -116,7 +116,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,int32_t event_i
 }
 
 //------------------------------------------------------------------------------------------------------//
-static void print_wifi_ip (void* event_data)        {
+__attribute__((unused))  static void print_wifi_ip (void* event_data)        {
     ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
     ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
 }
@@ -260,7 +260,7 @@ bool wifi_manager_has_failed(void)      {
 }
 
 //------------------------------------------------------------------------------------------------------//
-static void get_wifi_status (void)                      {
+__attribute__((unused)) static void get_wifi_status (void)                      {
     //-------Состояние битов статуса WiFi
     uint32_t bits = xEventGroupGetBits(s_wifi_event_group);
     ESP_LOGI(TAG, "EVENT BITS: INIT=%d, CONN=%d, CONNECTING=%d, FAIL=%d",
