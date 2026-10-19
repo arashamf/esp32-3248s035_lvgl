@@ -75,14 +75,12 @@ dependencies:
       - if: idf_version >=5.5 && $CONFIG{LV_USE_LZ4} == True && $CONFIG{LV_USE_LZ4_INTERNAL} == False
       version: ^1.10.0
     source:
-      registry_url: https://components.espressif.com/
+      registry_url: https://components.espressif.com
       type: service
     version: 9.6.0~1
 direct_dependencies:
 - espressif/esp_lcd_st7796
 - espressif/esp_lvgl_port
-- idf
-- lvgl/lvgl
-manifest_hash: 723d22db836f1945e3880c3ad54251aa7935c822c99ee4b72c9b2ee2d2d7c941
+manifest_hash: b9401ac4e8eed9e436c0d278dcbfdcf1e78999da590df37294426fa9b42cac72
 target: esp32
 version: 2.0.0
